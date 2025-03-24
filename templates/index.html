@@ -143,29 +143,35 @@
             // Clear previous results
             resultDiv.innerHTML = '';
 
-            // Use EventSource for SSE
-            const eventSource = new EventSource(`/process?prompt=${encodeURIComponent(prompt)}`);
+            fetch('/process', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
+                    return;
+                }
 
-            eventSource.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                const resultItem = document.createElement('div');
-                resultItem.className = 'result-item';
-                resultItem.innerHTML = `
-                    <div class="result-image">
-                        <img src="/uploads/${data.image_path.split('/').pop()}" alt="Processed Image">
-                    </div>
-                    <div class="result-text">
-                        <p><strong>Prompt:</strong> ${data.prompt}</p>
-                        <p><strong>Result:</strong> ${data.result || data.error}</p>
-                    </div>
-                `;
-                resultDiv.appendChild(resultItem);
-            };
-
-            eventSource.onerror = function() {
-                resultDiv.innerHTML += '<p>Error: Connection closed.</p>';
-                eventSource.close();
-            };
+                data.results.forEach(result => {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'result-item';
+                    resultItem.innerHTML = `
+                        <div class="result-image">
+                            <img src="/uploads/${result.image_path.split('/').pop()}" alt="Processed Image">
+                        </div>
+                        <div class="result-text">
+                            <p><strong>Prompt:</strong> ${result.prompt}</p>
+                            <p><strong>Result:</strong> ${result.result}</p>
+                        </div>
+                    `;
+                    resultDiv.appendChild(resultItem);
+                });
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            });
         }
     </script>
 </body>
