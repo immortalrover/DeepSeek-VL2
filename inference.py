@@ -20,8 +20,20 @@
 from argparse import ArgumentParser
 from typing import List, Dict
 import torch
+import logging
 from transformers import AutoModelForCausalLM
 import PIL.Image
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('inference.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 from deepseek_vl2.models import DeepseekVLV2ForCausalLM, DeepseekVLV2Processor
 from deepseek_vl2.serve.app_modules.utils import parse_ref_bbox
@@ -61,6 +73,7 @@ def load_pil_images(conversations: List[Dict[str, str]]) -> List[PIL.Image.Image
 
 
 def main(args):
+    logger.info('Starting inference with model: %s', args.model_path)
 
     dtype = torch.bfloat16
 
@@ -75,6 +88,7 @@ def main(args):
         torch_dtype=dtype
     )
     vl_gpt = vl_gpt.cuda().eval()
+    logger.info('Model loaded and moved to CUDA')
 
     # Single image conversation example
     conversation = [
@@ -89,7 +103,7 @@ def main(args):
 
     # load images and prepare for inputs
     pil_images = load_pil_images(conversation)
-    print(f"len(pil_images) = {len(pil_images)}")
+    logger.info('Loaded %d images for processing', len(pil_images))
 
     prepare_inputs = vl_chat_processor.__call__(
         conversations=conversation,
@@ -143,7 +157,7 @@ def main(args):
         )
 
         answer = tokenizer.decode(outputs[0][len(prepare_inputs.input_ids[0]):].cpu().tolist(), skip_special_tokens=False)
-        print(f"{prepare_inputs['sft_format'][0]}", answer)
+        logger.info('Generated answer: %s', answer)
 
         vg_image = parse_ref_bbox(answer, image=pil_images[-1])
         if vg_image is not None:

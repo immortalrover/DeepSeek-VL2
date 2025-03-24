@@ -4,6 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeepSeek-VL2 Web App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="file"], textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .image-grid img {
+            width: 100%;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
 </head>
 <body>
     <h1>DeepSeek-VL2 Image Processing</h1>
@@ -34,12 +95,20 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    resultDiv.innerHTML = `Success: ${data.message}`;
+                    let resultHTML = `<p>Success: ${data.message}</p>`;
+                    if (data.images && data.images.length > 0) {
+                        resultHTML += '<div class="image-grid">';
+                        data.images.forEach(image => {
+                            resultHTML += `<img src="${image}" alt="Processed Image">`;
+                        });
+                        resultHTML += '</div>';
+                    }
+                    resultDiv.innerHTML = resultHTML;
                 } else {
-                    resultDiv.innerHTML = `Error: ${data.error}`;
+                    resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
                 }
             } catch (error) {
-                resultDiv.innerHTML = `Error: ${error.message}`;
+                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
             }
         });
     </script>
