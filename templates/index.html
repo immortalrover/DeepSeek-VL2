@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek-VL2 Web App</title>
+</head>
+<body>
+    <h1>DeepSeek-VL2 Image Processing</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div>
+            <label for="images">Upload Images:</label>
+            <input type="file" name="images" id="images" multiple accept="image/*">
+        </div>
+        <div>
+            <label for="prompt">Prompt:</label>
+            <textarea name="prompt" id="prompt" rows="4" cols="50" placeholder="Enter your prompt here..."></textarea>
+        </div>
+        <button type="submit">Process</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Processing...';
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    resultDiv.innerHTML = `Success: ${data.message}`;
+                } else {
+                    resultDiv.innerHTML = `Error: ${data.error}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
+
