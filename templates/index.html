@@ -64,6 +64,25 @@
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+        .result-item {
+            display: flex;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .result-image {
+            flex: 1;
+            margin-right: 15px;
+        }
+        .result-image img {
+            width: 100%;
+            border-radius: 4px;
+        }
+        .result-text {
+            flex: 2;
+        }
     </style>
 </head>
 <body>
@@ -71,46 +90,83 @@
     <form id="uploadForm" enctype="multipart/form-data">
         <div>
             <label for="images">Upload Images:</label>
-            <input type="file" name="images" id="images" multiple accept="image/*">
+            <input type="file" name="images" id="images" multiple accept="image/*" onchange="previewImages()">
         </div>
+        <div id="imagePreview" class="image-grid"></div>
         <div>
             <label for="prompt">Prompt:</label>
             <textarea name="prompt" id="prompt" rows="4" cols="50" placeholder="Enter your prompt here..."></textarea>
         </div>
-        <button type="submit">Process</button>
+        <button type="button" onclick="processImages()">Process</button>
     </form>
     <div id="result"></div>
 
     <script>
-        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
+        let uploadedImages = [];
+
+        function previewImages() {
+            const fileInput = document.getElementById('images');
+            const previewDiv = document.getElementById('imagePreview');
+            previewDiv.innerHTML = '';
+
+            if (fileInput.files && fileInput.files.length > 0) {
+                uploadedImages = Array.from(fileInput.files);
+                uploadedImages.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.alt = 'Uploaded Image';
+                        previewDiv.appendChild(img);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        function processImages() {
+            const prompt = document.getElementById('prompt').value;
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = 'Processing...';
 
-            try {
-                const response = await fetch('/process', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    let resultHTML = `<p>Success: ${data.message}</p>`;
-                    if (data.images && data.images.length > 0) {
-                        resultHTML += '<div class="image-grid">';
-                        data.images.forEach(image => {
-                            resultHTML += `<img src="${image}" alt="Processed Image">`;
-                        });
-                        resultHTML += '</div>';
-                    }
-                    resultDiv.innerHTML = resultHTML;
-                } else {
-                    resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
-                }
-            } catch (error) {
-                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            if (uploadedImages.length === 0) {
+                resultDiv.innerHTML = '<p>Error: No images uploaded.</p>';
+                return;
             }
-        });
+
+            const formData = new FormData();
+            uploadedImages.forEach(file => {
+                formData.append('images', file);
+            });
+            formData.append('prompt', prompt);
+
+            // Clear previous results
+            resultDiv.innerHTML = '';
+
+            // Use EventSource for SSE
+            const eventSource = new EventSource(`/process?prompt=${encodeURIComponent(prompt)}`);
+
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+                resultItem.innerHTML = `
+                    <div class="result-image">
+                        <img src="/uploads/${data.image_path.split('/').pop()}" alt="Processed Image">
+                    </div>
+                    <div class="result-text">
+                        <p><strong>Prompt:</strong> ${data.prompt}</p>
+                        <p><strong>Result:</strong> ${data.result || data.error}</p>
+                    </div>
+                `;
+                resultDiv.appendChild(resultItem);
+            };
+
+            eventSource.onerror = function() {
+                resultDiv.innerHTML += '<p>Error: Connection closed.</p>';
+                eventSource.close();
+            };
+        }
     </script>
 </body>
 </html>

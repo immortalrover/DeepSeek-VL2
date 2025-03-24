@@ -159,9 +159,9 @@ def main(args):
         answer = tokenizer.decode(outputs[0][len(prepare_inputs.input_ids[0]):].cpu().tolist(), skip_special_tokens=False)
         logger.info('Generated answer: %s', answer)
 
-        vg_image = parse_ref_bbox(answer, image=pil_images[-1])
-        if vg_image is not None:
-            vg_image.save("./vg.jpg", format="JPEG", quality=85)
+        return {
+            "answer": answer,
+        }
 
 
 if __name__ == "__main__":

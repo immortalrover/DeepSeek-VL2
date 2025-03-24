@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import logging
 from werkzeug.utils import secure_filename
 from inference import main
 import argparse
+import json
 
 # Configure logging
 logging.basicConfig(
@@ -40,7 +41,7 @@ def process():
         return jsonify({'error': 'No images uploaded'}), 400
 
     files = request.files.getlist('images')
-    prompt = request.form.get('prompt', '')
+    prompt = request.form.get('prompt', '')  # Get single prompt
 
     # Save uploaded files
     image_paths = []
@@ -55,36 +56,38 @@ def process():
         logger.error('No valid images uploaded (invalid file extensions)')
         return jsonify({'error': 'No valid images uploaded'}), 400
 
-    # Prepare conversation for inference
-    conversation = [
-        {
-            "role": "<|User|>",
-            "content": f"<image>\n{prompt}",
-            "images": image_paths
-        },
-        {"role": "<|Assistant|>", "content": ""},
-    ]
+    def generate():
+        for image_path in image_paths:
+            # Mock args for inference
+            args = argparse.Namespace(
+                model_path="deepseek-vl2-tiny",
+                image_path=image_path,
+                prompt=prompt,
+                chunk_size=20
+            )
 
-    # Mock args for inference
-    args = argparse.Namespace(
-        model_path="deepseek-vl2-tiny",
-        image_path=image_paths[0],  # Use the first image path
-        prompt=prompt,
-        # chunk_size=-1
-    )
+            # Call inference
+            try:
+                logger.info('Starting inference for image: %s', image_path)
+                result = main(args)  # main() now returns a dict with "answer"
+                yield f"data: {json.dumps({
+                    'image_path': image_path,
+                    'result': result['answer'],
+                    'prompt': prompt
+                })}\n\n"
+            except Exception as e:
+                logger.error('Error during inference for image %s: %s', image_path, str(e), exc_info=True)
+                yield f"data: {json.dumps({
+                    'image_path': image_path,
+                    'error': str(e),
+                    'prompt': prompt
+                })}\n\n"
 
-    # Call inference
-    try:
-        logger.info('Starting inference with args: %s', args)
-        main(args)
-        logger.info('Inference completed successfully for images: %s', image_paths)
-        return jsonify({
-            'message': 'Processing completed successfully',
-            'images': image_paths  # Return the paths of uploaded images
-        })
-    except Exception as e:
-        logger.error('Error during inference: %s', str(e), exc_info=True)
-        return jsonify({'error': str(e)}), 500
+    return Response(generate(), mimetype='text/event-stream')
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
     app.run(debug=True)
