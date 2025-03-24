@@ -1,0 +1,3 @@
+[submodule "deepseek-vl2-tiny"]
+	path = deepseek-vl2-tiny
+	url = git@hf.co:deepseek-ai/deepseek-vl2-tiny
