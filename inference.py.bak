@@ -76,12 +76,16 @@ def main(args):
     )
     vl_gpt = vl_gpt.cuda().eval()
 
-    # Single image conversation example
+    # multiple images conversation example
+    # Please note that <|grounding|> token is specifically designed for the grounded caption feature. It is not needed for normal conversations.
     conversation = [
         {
             "role": "<|User|>",
-            "content": f"<image>\n{args.prompt}",
-            "images": [args.image_path],
+            "content": "<image>\n<image>\n<|grounding|>In the first image, an object within the red rectangle is marked. Locate the object of the same category in the second image.",
+            "images": [
+                "images/incontext_visual_grounding_1.jpeg",
+                "images/icl_vg_2.jpeg"
+            ],
         },
         {"role": "<|Assistant|>", "content": ""},
     ]
@@ -155,10 +159,6 @@ if __name__ == "__main__":
     parser.add_argument("--model_path", type=str, required=True,
                         default="deepseek-ai/deepseek-vl2",
                         help="model name or local path to the model")
-    parser.add_argument("--image_path", type=str, required=True,
-                        help="path to the input image")
-    parser.add_argument("--prompt", type=str, required=True,
-                        help="user prompt for the image")
     parser.add_argument("--chunk_size", type=int, default=-1,
                         help="chunk size for the model for prefiiling. "
                              "When using 40G gpu for vl2-small, set a chunk_size for incremental_prefilling."

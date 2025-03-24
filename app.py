@@ -53,7 +53,9 @@ def process():
 
     # Mock args for inference
     args = argparse.Namespace(
-        model_path="deepseek-ai/deepseek-vl2",
+        model_path="deepseek-vl2-tiny",
+        image_path=image_paths[0],  # Use the first image path
+        prompt=prompt,
         chunk_size=-1
     )
 
