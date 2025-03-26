@@ -1,179 +1,66 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepSeek-VL2 Web App</title>
+    <title>媒体处理客户端</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        h1 {
-            text-align: center;
-            color: #333;
-        }
-        form {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-        input[type="file"], textarea {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 16px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        #result {
-            margin-top: 20px;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .image-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .image-grid img {
-            width: 100%;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .result-item {
-            display: flex;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .result-image {
-            flex: 1;
-            margin-right: 15px;
-        }
-        .result-image img {
-            width: 100%;
-            border-radius: 4px;
-        }
-        .result-text {
-            flex: 2;
-        }
+        #status { padding: 10px; margin: 10px 0; }
+        .connected { background: #cfc; }
+        .error { background: #fcc; }
+        #preview { max-width: 600px; }
     </style>
 </head>
 <body>
-    <h1>DeepSeek-VL2 Image Processing</h1>
-    <form id="uploadForm" enctype="multipart/form-data">
-        <div>
-            <label for="images">Upload Images:</label>
-            <input type="file" name="images" id="images" multiple accept="image/*" onchange="previewImages()">
-        </div>
-        <div id="imagePreview" class="image-grid"></div>
-        <div>
-            <label for="prompt">Prompt:</label>
-            <textarea name="prompt" id="prompt" rows="4" cols="50" placeholder="Enter your prompt here..."></textarea>
-        </div>
-        <button type="button" onclick="processImages()">Process</button>
-    </form>
-    <div id="result"></div>
+    <h1>媒体处理客户端</h1>
+
+    <!-- 状态指示 -->
+    <div id="status">未连接</div>
+
+    <!-- 文件上传 -->
+    <input type="file" id="fileInput" accept="video/*, image/*" multiple>
+    <button onclick="processFile()">开始处理</button>
+
+    <!-- 结果预览 -->
+    <div id="output"></div>
+    <img id="preview" style="display: none;">
 
     <script>
-        let uploadedImages = [];
+        const ws = new WebSocket('ws://localhost:8000/media-process')
+        const statusEl = document.getElementById('status')
+        const outputEl = document.getElementById('output')
+        const previewEl = document.getElementById('preview')
 
-        function previewImages() {
-            const fileInput = document.getElementById('images');
-            const previewDiv = document.getElementById('imagePreview');
-            previewDiv.innerHTML = '';
-
-            if (fileInput.files && fileInput.files.length > 0) {
-                uploadedImages = Array.from(fileInput.files);
-                uploadedImages.forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.alt = 'Uploaded Image';
-                        previewDiv.appendChild(img);
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }
+        // WebSocket连接状态管理
+        ws.onopen = () => {
+            statusEl.className = 'connected'
+            statusEl.textContent = '已连接到服务器'
         }
 
-        function processImages() {
-            const prompt = document.getElementById('prompt').value;
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = 'Processing...';
+        ws.onerror = (error) => {
+            statusEl.className = 'error'
+            statusEl.textContent = `连接错误: ${error.message}`
+        }
 
-            if (uploadedImages.length === 0) {
-                resultDiv.innerHTML = '<p>Error: No images uploaded.</p>';
-                return;
-            }
+        // 文件处理逻辑
+        function processFile() {
+            const files = document.getElementById('fileInput').files
+            if (files.length === 0) return alert('请选择文件')
 
-            const formData = new FormData();
-            uploadedImages.forEach(file => {
-                formData.append('images', file);
-            });
-            formData.append('prompt', prompt);
-
-            // Clear previous results
-            resultDiv.innerHTML = '';
-
-            fetch('/process', {
-                method: 'POST',
-                body: formData,
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    resultDiv.innerHTML = `<p>Error: ${data.error}</p>`;
-                    return;
-                }
-
-                data.results.forEach(result => {
-                    const resultItem = document.createElement('div');
-                    resultItem.className = 'result-item';
-                    resultItem.innerHTML = `
-                        <div class="result-image">
-                            <img src="/uploads/${result.image_path.split('/').pop()}" alt="Processed Image">
-                        </div>
-                        <div class="result-text">
-                            <p><strong>Prompt:</strong> ${result.prompt}</p>
-                            <p><strong>Result:</strong> ${result.result}</p>
-                        </div>
-                    `;
-                    resultDiv.appendChild(resultItem);
+            const readers = Array.from(files).map(file =>{
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.readAsDataURL(file);
                 });
-            })
-            .catch(error => {
-                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
             });
+            try {
+                const base64Results = await Promise.all(reader);
+                const payload = {
+                    images: base64Results,
+                    filenames: Array.from(files).map(f => f.name)
+                };
+                ws.send(JSON.stringify(payload));
+            } catch (error) {alert('文件读取失败:'+error)}
         }
     </script>
 </body>
 </html>
-
